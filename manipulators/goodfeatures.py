@@ -1,7 +1,7 @@
 import cv
 
 
-def good_features(image):
+def goodfeatures(image):
     # Get the size of the image
     size = cv.GetSize(image)
 
@@ -17,6 +17,5 @@ def good_features(image):
     corners = cv.GoodFeaturesToTrack(gray_image, eig_image, temp_image, 100, 0.04, 2)
 
     for corner in corners:
-        print corner
         cv.Circle(image, corner, 5, cv.RGB(0,255,0), -1)
     return image

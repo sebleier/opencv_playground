@@ -33,7 +33,7 @@ import cv, os, sys, urllib
 
 HAAR_PATH = os.environ.get('HAAR_PATH', '/usr/local/share/opencv/haarcascades/')
 
-def detect(image):
+def facedetect(image):
     if isinstance(image, basestring):
         # Load the image
         image = cv.LoadImage(image)
