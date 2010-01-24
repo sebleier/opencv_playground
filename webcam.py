@@ -1,62 +1,60 @@
 import cv
 from optparse import OptionParser
-from manipulators import canny, dilate, erode, facedetect, goodfeatures
+from plugins import Plugin
+from collections import defaultdict
 
 
 class WebCam(object):
-    def __init__(self, width=640, height=480, manipulators=[]):
+    def __init__(self, width=None, height=None, fps=30, plugins=[]):
         self.width = width
         self.height = height
         self.camera = cv.CreateCameraCapture(0)
-        self.key_events = {}
-        self.manipulators = manipulators
+        self.fps = fps
+        if width is not None and height is not None:
+            cv.NamedWindow('Camera')
+            cv.ResizeWindow('Camera', width, height)
+        else:
+            cv.NamedWindow('Camera', cv.CV_WINDOW_AUTOSIZE)
+
+        # Add the specified plugins from the available plugins
+        self._plugins = []
+        for plugin_name in plugins:
+            for plugin in Plugin.plugins:
+                if plugin.__name__.lower() in ("plugin", plugin_name.lower()):
+                    self._plugins.append(plugin())
 
     def get_image(self):
         """ Get the current frame and convert to an Image object """
-        im = cv.QueryFrame(self.camera)
-        im = self.process_image(im)
-        for f in self.manipulators:
-            im = f(im)
-        return im
+        image = cv.QueryFrame(self.camera)
+        for plugin in self._plugins:
+            image = plugin(image)
+        return image
 
-    def process_image(self, im):
-        """ Hook to do some image processing / manipulation """
-        return im
+    def handle_events(self):
+        key = cv.WaitKey(int(1000 * 1.0/self.fps))
+        if key != -1:
+            for plugin in self._plugins:
+                plugin.pressed(key)
+
+    def process_frame(self):
+        while True:
+            self.handle_events()
+            image = self.get_image()
+            yield image
 
     def capture_video(self):
-        fps = 30.0
-        try:
-            cv.NamedWindow('Camera', cv.CV_WINDOW_AUTOSIZE)
-            while True:
-                im = self.get_image()
-                cv.ShowImage('Camera', im)
-                key = cv.WaitKey(int(1000 * 1.0/fps))
-                if key == 0x1b:
-                    break
-                elif key == -1:
-                    continue
-                elif self.key_events.has_key(key):
-                    self.key_events[key]()
-        except KeyboardInterrupt:
-            return
-
+        for frame in self.process_frame():
+            cv.ShowImage('Camera', frame)
 
 if __name__=="__main__":
     parser = OptionParser()
-    manipulators = []
-    manipulators_options = {
-        'canny': canny.canny,
-        'dilate': dilate.dilate,
-        'erode': erode.erode,
-        'facedetect': facedetect.facedetect,
-        'goodfeatures': goodfeatures.goodfeatures,
-    }
+    plugins = []
     (options, args) = parser.parse_args()
     for arg in args:
         try:
-            manipulators.append(manipulators_options[arg])
+            plugins.append(arg)
         except KeyError:
             pass
 
-    webcam = WebCam(manipulators=manipulators)
+    webcam = WebCam(plugins=plugins)
     webcam.capture_video()
